@@ -2,8 +2,8 @@ package main
 
 import (
 	"log"
-	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/nedaZarei/FileFlow/producer/handler"
 	"github.com/nedaZarei/FileFlow/producer/pkg/db"
 	"github.com/nedaZarei/FileFlow/producer/pkg/kafka"
@@ -32,7 +32,8 @@ func main() {
 	//init Handler
 	uploadHandler := handler.NewUploadHandler(db, writer)
 
-	//HTTP server
-	http.HandleFunc("/upload", uploadHandler.HandleUpload)
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	//echo server
+	e := echo.New()
+	e.POST("/upload", uploadHandler.HandleUpload)
+	log.Fatal(e.Start(":8000"))
 }

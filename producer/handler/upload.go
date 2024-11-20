@@ -3,9 +3,10 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strconv"
 
+	"github.com/labstack/echo/v4"
 	"github.com/nedaZarei/FileFlow/producer/pkg/model"
 	"github.com/segmentio/kafka-go"
 )
@@ -22,28 +23,25 @@ func NewUploadHandler(db *sql.DB, writer *kafka.Writer) *UploadHandler {
 	}
 }
 
-func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+func (h *UploadHandler) HandleUpload(c echo.Context) error {
 	var fileUpload model.FileUpload
-	if err := json.NewDecoder(r.Body).Decode(&fileUpload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	if err := c.Bind(&fileUpload); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
 	var id int64
 	err := h.db.QueryRow(`
-        INSERT INTO files (file_url, bucket_name, object_name)
-        VALUES ($1, $2, $3)
-        RETURNING id`,
+		INSERT INTO files (file_url, bucket_name, object_name)
+		VALUES ($1, $2, $3)
+		RETURNING id`,
 		fileUpload.FileURL, fileUpload.BucketName, fileUpload.ObjectName,
 	).Scan(&id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
 	fileUpload.ID = id
@@ -51,21 +49,22 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	//send to Kafka
 	message, err := json.Marshal(fileUpload)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	err = h.writer.WriteMessages(r.Context(), kafka.Message{
+	err = h.writer.WriteMessages(c.Request().Context(), kafka.Message{
 		Value: message,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{
+	return c.JSON(http.StatusAccepted, map[string]interface{}{
 		"message": "file upload initiated successfully",
-		"id":      fmt.Sprintf("%d", id),
+		"id":      strconv.FormatInt(id, 10),
 	})
 }
