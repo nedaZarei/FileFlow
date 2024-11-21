@@ -2,7 +2,7 @@ server:
   port: :8000
 
 minio:
-  endpoint: "my-minio.darkube.app"
-  accesskey: "FMZUSsvTowhC0yAmLWgF"
-  secretkey: "IUbj0P1ZcK00LfmhsGvYc4MaiONiiu2WLoi8drU0"
-  bucket: "fileBucket"
+  endpoint: "my-minio-file.darkube.app"
+  accesskey: "8cskO9L8YAclniAykvne"
+  secretkey: "05YTmHjkE7CqHxTfcobCttKEwjnGuu5Vb5pKkGwh"
+  bucket: "file-bucket"

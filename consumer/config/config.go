@@ -3,12 +3,7 @@ package config
 import "github.com/spf13/viper"
 
 type Config struct {
-	Server Server `yaml:"server"`
-	Minio  Minio  `yaml:"minio"`
-}
-
-type Server struct {
-	Port string `yaml:"port"`
+	Minio Minio `yaml:"minio"`
 }
 
 type Minio struct {

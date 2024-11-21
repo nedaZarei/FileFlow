@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -22,7 +20,6 @@ import (
 
 type ConsumerHandler struct {
 	cfg         *config.Config
-	e           *echo.Echo
 	db          *sql.DB
 	reader      *kafka.Reader
 	minioClient *minio.Client //implements amazon S3 compatible method
@@ -30,7 +27,6 @@ type ConsumerHandler struct {
 
 func NewHandler(cfg *config.Config) *ConsumerHandler {
 	return &ConsumerHandler{
-		e:   echo.New(),
 		cfg: cfg}
 }
 
@@ -55,22 +51,6 @@ func (h *ConsumerHandler) Start() error {
 	}
 	log.Println("connected to Minio")
 
-	//setting up echo server with middleware
-	h.e.Use(middleware.Logger())
-	h.e.Use(middleware.Recover())
-
-	//api routes (for backward compatability)
-	v1 := h.e.Group("/api/v1")
-	v1.POST("/store", h.storingFile)
-
-	if err := h.e.Start("localhost" + h.cfg.Server.Port); err != nil {
-		return fmt.Errorf("failed to start server: %v", err)
-	}
-
-	return nil
-}
-
-func (h *ConsumerHandler) storingFile(c echo.Context) error {
 	ctx := context.Background()
 	for {
 		message, err := h.reader.ReadMessage(ctx)
