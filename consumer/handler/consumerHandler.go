@@ -15,6 +15,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/nedaZarei/FileFlow/config"
+	"github.com/nedaZarei/FileFlow/pkg/db"
 	"github.com/nedaZarei/FileFlow/pkg/model"
 )
 
@@ -31,6 +32,20 @@ func NewHandler(cfg *config.Config) *ConsumerHandler {
 }
 
 func (h *ConsumerHandler) Start() error {
+	//init db
+	dbConn, dbErr := db.NewPostgresConnection(db.PostgresConfig{
+		Host:     "db",
+		Port:     5432,
+		User:     "postgres",
+		Password: "postgres",
+		DBName:   "simpleapi_database",
+	})
+	if dbErr != nil {
+		log.Fatalf("failed to connect to database: %v", dbErr)
+	}
+	defer dbConn.Close()
+	h.db = dbConn
+
 	//kafka init
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{"kafka:9092"},

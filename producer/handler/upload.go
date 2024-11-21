@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/nedaZarei/FileFlow/config"
+	"github.com/nedaZarei/FileFlow/pkg/db"
 	"github.com/nedaZarei/FileFlow/pkg/model"
 	"github.com/segmentio/kafka-go"
 )
@@ -21,21 +23,38 @@ type UploadHandler struct {
 	writer *kafka.Writer
 }
 
-func NewUploadHandler(db *sql.DB, writer *kafka.Writer, cfg *config.Config) *UploadHandler {
+func NewUploadHandler(cfg *config.Config) *UploadHandler {
 	return &UploadHandler{
-		e:      echo.New(),
-		cfg:    cfg,
-		db:     db,
-		writer: writer,
+		e:   echo.New(),
+		cfg: cfg,
 	}
 }
 
 func (h *UploadHandler) Start() error {
+	//init db
+	db, err := db.NewPostgresConnection(db.PostgresConfig{
+		Host:     "db",
+		Port:     5432,
+		User:     "postgres",
+		Password: "postgres",
+		DBName:   "simpleapi_database",
+	})
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	//init Kafka writer
+	writer := kafka.NewWriter(kafka.WriterConfig{
+		Brokers: []string{"kafka:9092"},
+		Topic:   "file-upload-topic",
+	})
+	defer writer.Close()
+
 	//setting up echo server with middleware
 	h.e.Use(middleware.Logger())
 	h.e.Use(middleware.Recover())
 
-	//api routes (for backward compatability)
 	v1 := h.e.Group("/api/v1")
 	v1.POST("/upload", h.uploadFile)
 
