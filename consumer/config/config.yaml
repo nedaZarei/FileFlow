@@ -3,3 +3,8 @@ minio:
   accesskey: "8cskO9L8YAclniAykvne"
   secretkey: "05YTmHjkE7CqHxTfcobCttKEwjnGuu5Vb5pKkGwh"
   bucket: "file-bucket"
+
+kafka:
+  broker: kafka:9092
+  topic: upload_file_topic
+  group_id: file_consumer_group

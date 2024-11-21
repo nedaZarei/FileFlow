@@ -43,13 +43,15 @@ func (h *UploadHandler) Start() error {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
+	h.db = db
 
 	//init Kafka writer
 	writer := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{"kafka:9092"},
-		Topic:   "file-upload-topic",
+		Brokers: []string{h.cfg.Kafka.Broker},
+		Topic:   h.cfg.Kafka.Topic,
 	})
 	defer writer.Close()
+	h.writer = writer
 
 	//setting up echo server with middleware
 	h.e.Use(middleware.Logger())

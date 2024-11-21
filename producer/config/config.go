@@ -4,10 +4,16 @@ import "github.com/spf13/viper"
 
 type Config struct {
 	Server Server `yaml:"server"`
+	Kafka  Kafka  `yaml:"kafka"`
 }
 
 type Server struct {
 	Port string `yaml:"port"`
+}
+
+type Kafka struct {
+	Broker string `yaml:"broker"`
+	Topic  string `yaml:"topic"`
 }
 
 func InitConfig(filename string) (*Config, error) {

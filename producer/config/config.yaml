@@ -1,2 +1,6 @@
 server:
   port: :8000
+
+kafka:
+  broker: kafka:9092
+  topic: upload_file_topic

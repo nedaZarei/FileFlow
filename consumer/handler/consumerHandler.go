@@ -48,9 +48,9 @@ func (h *ConsumerHandler) Start() error {
 
 	//kafka init
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{"kafka:9092"},
-		Topic:   "file-upload-topic",
-		GroupID: "file-processor-group",
+		Brokers: []string{h.cfg.Kafka.Broker},
+		Topic:   h.cfg.Kafka.Topic,
+		GroupID: h.cfg.Kafka.GroupID,
 	})
 	defer reader.Close()
 	h.reader = reader
