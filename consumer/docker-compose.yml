@@ -1,24 +1,30 @@
+version: "3.9"
 services:
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    command: /app/consumer
+    command: /app/producer
     volumes:
-      - .:/code
+      - ./config:/app/config
     networks:
       - mynetwork
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
-    environment: {}
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: simpleapi_database
+      KAFKA_BROKER: kafka:9092
     depends_on:
       - db
       - kafka
 
   db:
     image: postgres:13
+    container_name: db
     environment:
       POSTGRES_DB: simpleapi_database
       POSTGRES_USER: postgres
@@ -29,18 +35,24 @@ services:
       - mynetwork
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "simpleapi_database"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+      start_period: 10s
 
   kafka:
-    restart: always
     image: bitnami/kafka:latest
     container_name: kafka
+    restart: always
     environment:
-      - KAFKA_LISTENER_NAME_INTERNAL=PLAINTEXT://kafka:9092
-      - KAFKA_LISTENER_NAME_EXTERNAL=PLAINTEXT://localhost:9093
-      - KAFKA_LISTENER_NAME_ADVERTISED=PLAINTEXT://localhost:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_MESSAGE_MAX_BYTES=2097152  
-      - KAFKA_REPLICA_FETCH_MAX_BYTES=2097152  
+      - KAFKA_CFG_MESSAGE_MAX_BYTES=2097152
+      - KAFKA_CFG_REPLICA_FETCH_MAX_BYTES=2097152
     ports:
       - "9092:9092"
     depends_on:
@@ -49,13 +61,19 @@ services:
       - kafka_data:/bitnami/kafka
     networks:
       - mynetwork
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+      start_period: 10s
 
   zookeeper:
     image: bitnami/zookeeper:latest
     container_name: zookeeper
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-      - ZOOKEEPER_MAX_BUFFER=2097152 
+      - ZOOKEEPER_MAX_BUFFER=2097152
     ports:
       - "2181:2181"
     volumes:
@@ -74,19 +92,14 @@ services:
       - "8080:8080"
     depends_on:
       - kafka
-      - zookeeper
     networks:
       - mynetwork
 
 volumes:
   postgres_data:
-  minio_data:
   zookeeper_data:
-    driver: local
   kafka_data:
-    driver: local
 
 networks:
   mynetwork:
     driver: bridge
-

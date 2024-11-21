@@ -33,7 +33,7 @@ func NewUploadHandler(cfg *config.Config) *UploadHandler {
 func (h *UploadHandler) Start() error {
 	//init db
 	db, err := db.NewPostgresConnection(db.PostgresConfig{
-		Host:     "db",
+		Host:     "producer-db-1",
 		Port:     5432,
 		User:     "postgres",
 		Password: "postgres",
