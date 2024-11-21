@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/nedaZarei/FileFlow/consumer/config"
-	"github.com/nedaZarei/FileFlow/consumer/handler"
-	"github.com/nedaZarei/FileFlow/consumer/pkg/db"
+	"github.com/nedaZarei/FileFlow/config"
+	"github.com/nedaZarei/FileFlow/handler"
+	"github.com/nedaZarei/FileFlow/pkg/db"
 )
 
 func main() {

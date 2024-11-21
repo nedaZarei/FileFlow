@@ -14,8 +14,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/segmentio/kafka-go"
 
-	"github.com/nedaZarei/FileFlow/consumer/config"
-	"github.com/nedaZarei/FileFlow/consumer/pkg/model"
+	"github.com/nedaZarei/FileFlow/config"
+	"github.com/nedaZarei/FileFlow/pkg/model"
 )
 
 type ConsumerHandler struct {

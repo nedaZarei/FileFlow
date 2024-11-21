@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
-	"github.com/labstack/echo/v4"
-	"github.com/nedaZarei/FileFlow/producer/handler"
-	"github.com/nedaZarei/FileFlow/producer/pkg/db"
-	"github.com/nedaZarei/FileFlow/producer/pkg/kafka"
+	"github.com/nedaZarei/FileFlow/config"
+	"github.com/nedaZarei/FileFlow/handler"
+	"github.com/nedaZarei/FileFlow/pkg/db"
+	"github.com/nedaZarei/FileFlow/pkg/kafka"
 )
 
 func main() {
@@ -29,11 +30,16 @@ func main() {
 	})
 	defer writer.Close()
 
-	//init Handler
-	uploadHandler := handler.NewUploadHandler(db, writer)
+	cfg, err := config.InitConfig("./config/config.yaml")
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+	fmt.Println(cfg)
 
-	//echo server
-	e := echo.New()
-	e.POST("/upload", uploadHandler.HandleUpload)
-	log.Fatal(e.Start(":8000"))
+	//init Handler
+	uploadHandler := handler.NewUploadHandler(db, writer, cfg)
+
+	if err := uploadHandler.Start(); err != nil {
+		log.Fatalf("failed to start producer: %v", err)
+	}
 }

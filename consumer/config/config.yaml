@@ -1,6 +1,3 @@
-server:
-  port: :8000
-
 minio:
   endpoint: "my-minio-file.darkube.app"
   accesskey: "8cskO9L8YAclniAykvne"

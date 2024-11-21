@@ -1,7 +1,9 @@
 services:
-  web:  # the service of producer and consumer scripts 
-    build: .
-    command: #fill if needed
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /app/producer
     volumes:
       - .:/code
     networks:
@@ -14,7 +16,6 @@ services:
     depends_on:
       - db
       - kafka
-      - minio
 
   db:
     image: postgres:13
