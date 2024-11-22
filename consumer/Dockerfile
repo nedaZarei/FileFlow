@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o consumer
 FROM scratch
 COPY --from=builder /app/consumer /app/consumer
 
-COPY --from=builder /app/config.yaml /app/config.yaml
+COPY --from=builder /app/config/config.yaml /app/config.yaml
 
 EXPOSE 8000
 

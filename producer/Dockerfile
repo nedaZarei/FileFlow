@@ -8,6 +8,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o producer
 FROM scratch
 COPY --from=builder /app/producer /app/producer
 
+COPY --from=builder /app/config/config.yaml /app/config.yaml
+
 EXPOSE 8000
 
 ENTRYPOINT ["/app/producer"]
