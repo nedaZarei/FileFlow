@@ -5,6 +5,4 @@ type FileUpload struct {
 	FileURL    string `json:"file_url"`
 	BucketName string `json:"bucket_name"`
 	ObjectName string `json:"object_name"`
-	ETag       string `json:"etag,omitempty"`
-	Size       int64  `json:"size,omitempty"`
 }

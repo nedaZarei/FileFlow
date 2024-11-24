@@ -1,7 +1,7 @@
 minio:
   endpoint: "my-minio-file.darkube.app"
-  accesskey: "8cskO9L8YAclniAykvne"
-  secretkey: "05YTmHjkE7CqHxTfcobCttKEwjnGuu5Vb5pKkGwh"
+  accesskey: "c4JrL9xJILzgIH7zRu4y"
+  secretkey: "MMMIq1AQSoRiCsSU6WdlOLIAVv7KmTj4Y4SgxzhL"
   bucket: "file-bucket"
 
 kafka:

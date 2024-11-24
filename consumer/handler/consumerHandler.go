@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -24,11 +27,32 @@ type ConsumerHandler struct {
 	db          *sql.DB
 	reader      *kafka.Reader
 	minioClient *minio.Client //implements amazon S3 compatible method
+	httpClient  *http.Client
 }
 
 func NewHandler(cfg *config.Config) *ConsumerHandler {
+	//creating http client with redirect handling and longer timeout
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig:    &tls.Config{InsecureSkipVerify: true},
+			MaxIdleConns:       100,
+			IdleConnTimeout:    90 * time.Second,
+			DisableCompression: true,
+		},
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			//up to 10 redirects
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return nil
+		},
+	}
+
 	return &ConsumerHandler{
-		cfg: cfg}
+		cfg:        cfg,
+		httpClient: httpClient,
+	}
 }
 
 func (h *ConsumerHandler) Start() error {
@@ -55,11 +79,27 @@ func (h *ConsumerHandler) Start() error {
 	defer reader.Close()
 	h.reader = reader
 
+	h.httpClient = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		MaxIdleConns:       100,
+		IdleConnTimeout:    90 * time.Second,
+		DisableCompression: true,
+	}
+
 	//minio init
 	var err error
 	h.minioClient, err = minio.New(h.cfg.Minio.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(h.cfg.Minio.AccessKey, h.cfg.Minio.SecretKey, ""),
-		Secure: true,
+		Creds:     credentials.NewStaticV4(h.cfg.Minio.AccessKey, h.cfg.Minio.SecretKey, ""),
+		Secure:    true,
+		Transport: transport,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize Minio client: %v", err)
@@ -80,29 +120,58 @@ func (h *ConsumerHandler) Start() error {
 			continue
 		}
 
-		//downloading file from URL
-		resp, err := http.Get(fileUpload.FileURL)
+		//download file
+		resp, err := h.httpClient.Get(fileUpload.FileURL)
 		if err != nil {
-			log.Printf("error downloading file: %v", err)
+			log.Printf("error downloading file from %s: %v", fileUpload.FileURL, err)
 			continue
 		}
 
-		//uploading it to Minio
-		info, err := h.minioClient.PutObject(ctx, fileUpload.BucketName, fileUpload.ObjectName,
-			resp.Body, -1, minio.PutObjectOptions{ContentType: "application/octet-stream"})
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("unexpected status code downloading file: %d", resp.StatusCode)
+			continue
+		}
+
+		// Read response body
+		const maxSize = 100 * 1024 * 1024 // 100MB limit
+		btt, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
 		if err != nil {
-			log.Printf("error uploading file: %v", err)
+			log.Printf("error reading response body: %v", err)
+			continue
+		}
+
+		//upload to Minio with content type detection
+		contentType := http.DetectContentType(btt)
+		info, err := h.minioClient.PutObject(
+			ctx,
+			fileUpload.BucketName,
+			fileUpload.ObjectName,
+			bytes.NewReader(btt),
+			int64(len(btt)),
+			minio.PutObjectOptions{
+				ContentType: contentType,
+			},
+		)
+		if err != nil {
+			log.Printf("error uploading file to Minio: %v", err)
+			log.Printf("upload details - bucket: %s, object: %s, size: %d, content-type: %s",
+				fileUpload.BucketName, fileUpload.ObjectName, len(btt), contentType)
 			continue
 		}
 
 		_, err = h.db.Exec(`
-            UPDATE files 
-            SET etag = $1, size = $2 
-            WHERE id = $3`,
-			info.ETag, info.Size, fileUpload.ID,
+		UPDATE files 
+		SET etag = $1, 
+			size = $2
+		WHERE id = $3`,
+			info.ETag,
+			info.Size,
+			fileUpload.ID,
 		)
 		if err != nil {
 			log.Printf("error updating database: %v", err)
+			log.Printf("failed update for file ID: %d, ETag: %s, Size: %d",
+				fileUpload.ID, info.ETag, info.Size)
 			continue
 		}
 
@@ -114,6 +183,6 @@ func (h *ConsumerHandler) Start() error {
 			continue
 		}
 
-		log.Printf("successfully processed file. presigned URL: %s", url.String())
+		log.Printf("successfully processed file %s. presigned URL: %s", fileUpload.ObjectName, url.String())
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/nedaZarei/FileFlow/config"
 	"github.com/nedaZarei/FileFlow/pkg/db"
+	"github.com/nedaZarei/FileFlow/pkg/model"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -66,39 +67,21 @@ func (h *UploadHandler) Start() error {
 }
 
 func (h *UploadHandler) uploadFile(c echo.Context) error {
-	//getting file from multipart form
-	file, err := c.FormFile("file_url")
-	if err != nil {
+	var fileRequest model.FileUpload
+
+	//binding request body to model
+	if err := c.Bind(&fileRequest); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "No file uploaded: " + err.Error(),
+			"error": err.Error(),
 		})
 	}
-
-	//openning the file
-	src, err := file.Open()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Could not open file: " + err.Error(),
-		})
-	}
-	defer src.Close()
-
-	// Get other form fields
-	bucketName := c.FormValue("bucket_name")
-	objectName := c.FormValue("object_name")
-
-	//generate a file URL (could be a local path or external URL)
-	fileURL := "local://" + file.Filename
-
-	log.Printf("#####received file_url: %s, bucket_name: %s, object_name: %s",
-		fileURL, bucketName, objectName)
 
 	//inserting into database
 	var id int64
-	err = h.db.QueryRow(
+	err := h.db.QueryRow(
 		`INSERT INTO files (file_url, bucket_name, object_name) 
         VALUES ($1, $2, $3) RETURNING id`,
-		fileURL, bucketName, objectName,
+		fileRequest.FileURL, fileRequest.BucketName, fileRequest.ObjectName,
 	).Scan(&id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -106,16 +89,8 @@ func (h *UploadHandler) uploadFile(c echo.Context) error {
 		})
 	}
 
-	//preparing request payload to kafka
-	payload := map[string]string{
-		"id":         strconv.FormatInt(id, 10),
-		"fileURL":    fileURL,
-		"bucketName": bucketName,
-		"objectName": objectName,
-	}
-
 	//send to Kafka
-	message, err := json.Marshal(payload)
+	message, err := json.Marshal(fileRequest)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),

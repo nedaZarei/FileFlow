@@ -4,13 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: /app/producer
+    command: /app/consumer
     volumes:
       - ./config:/app/config
     networks:
-      - mynetwork
-    ports:
-      - "8000:8000"
+      - shared_network
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -18,88 +16,8 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: simpleapi_database
       KAFKA_BROKER: kafka:9092
-    depends_on:
-      - db
-      - kafka
-
-  db:
-    image: postgres:13
-    container_name: db
-    environment:
-      POSTGRES_DB: simpleapi_database
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - mynetwork
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "simpleapi_database"]
-      interval: 10s
-      retries: 5
-      timeout: 5s
-      start_period: 10s
-
-  kafka:
-    image: bitnami/kafka:latest
-    container_name: kafka
-    restart: always
-    environment:
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_CFG_MESSAGE_MAX_BYTES=2097152
-      - KAFKA_CFG_REPLICA_FETCH_MAX_BYTES=2097152
-    ports:
-      - "9092:9092"
-    depends_on:
-      - zookeeper
-    volumes:
-      - kafka_data:/bitnami/kafka
-    networks:
-      - mynetwork
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
-      interval: 10s
-      retries: 5
-      timeout: 5s
-      start_period: 10s
-
-  zookeeper:
-    image: bitnami/zookeeper:latest
-    container_name: zookeeper
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
-      - ZOOKEEPER_MAX_BUFFER=2097152
-    ports:
-      - "2181:2181"
-    volumes:
-      - zookeeper_data:/bitnami/zookeeper
-    networks:
-      - mynetwork
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
-    ports:
-      - "8080:8080"
-    depends_on:
-      - kafka
-    networks:
-      - mynetwork
-
-volumes:
-  postgres_data:
-  zookeeper_data:
-  kafka_data:
 
 networks:
-  mynetwork:
-    driver: bridge
+  shared_network:
+    external: true
+
