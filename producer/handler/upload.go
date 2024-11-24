@@ -89,6 +89,7 @@ func (h *UploadHandler) uploadFile(c echo.Context) error {
 		})
 	}
 
+	fileRequest.ID = id
 	//send to Kafka
 	message, err := json.Marshal(fileRequest)
 	if err != nil {
